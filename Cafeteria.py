@@ -154,36 +154,92 @@ class Cafeteria:
         return "\n".join(lignes)
 
     def scenario(self):
-        cafe_expresso = Produit("BO1","Café expresso","boisson chaude",1.20,100)
-        the = Produit("B02", "Thé", "boisson chaude", 1.30, 60)
-        chocolat_chaud = Produit("B03", "Chocolat chaud", "boisson chaude", 1.60, 40)
-        jus_orange = Produit("B04", "Jus d'orange", "boisson froide", 2.00, 24)
-        eau_50cl = Produit("B05", "Eau 50 cl", "boisson froide", 1.00, 40)
-        croissant = Produit("V01", "Croissant", "viennoiserie", 1.20, 30)
-        sandwich_jambon_beurre = Produit("P01", "Sandwich jambon-beurre", "plat", 4.00, 15)
-        wrap_vegetarien = Produit("P02", "Wrap végétarien", "plat", 4.60, 10)
-        plat_du_jour = Produit("P03", "Plat du jour", "plat", 7.20, 20)
-        cookie = Produit("D01", "Cookie", "dessert", 1.40, 25)
-        fruit_saison = Produit("D02", "Fruit de saison", "dessert", 0.80, 30)
-        
-        alice = Client("Alice" , 12.00 ,Profile.etudiant)
-        bruno = Client("Bruno" , 3.50 , Profile.alternant)
-        chloe = Client("Chloé" , 25.00 , Profile.etudiant)
-        farid = Client("Farid" , 0.00 , Profile.personnel)
-        
-        
-        cmd1 = Commande(alice , "07:30")
-        cmd1.ajouter_ligne(cafe_expresso,1)
-        cmd1.ajouter_ligne(croissant,1)
-        
-        
-        
-                
+        cafe_expresso = self.chercher_produit("BO1")
+        the = self.chercher_produit("BO2")
+        chocolat_chaud = self.chercher_produit("BO3")
+        jus_orange = self.chercher_produit("BO4")
+        eau_50cl = self.chercher_produit("BO5")
+        croissant = self.chercher_produit("VO1")
+        sandwich = self.chercher_produit("PO1")
+        wrap = self.chercher_produit("PO2")
+        plat_du_jour = self.chercher_produit("PO3")
+        cookie = self.chercher_produit("DO1")
+        fruit = self.chercher_produit("DO2")
 
-Wenov = Cafeteria()
+        alice = self.clients[0]
+        bruno = self.clients[1]
+        chloe = self.clients[2]
+        farid = self.clients[3]
 
-Wenov.scenario() 
-                
-        
-    
-    
+        commande = Commande(alice, "07:45")
+        commande.ajouter_ligne(cafe_expresso, 1)
+        commande.ajouter_ligne(croissant, 1)
+        self.traiter_commande(commande)
+
+        commande = Commande(farid, "08:10")
+        commande.ajouter_ligne(cafe_expresso, 2)
+        self.traiter_commande(commande)
+
+        commande = Commande(bruno, "08:30")
+        commande.ajouter_ligne(chocolat_chaud, 1)
+        commande.ajouter_ligne(croissant, 3)
+        self.traiter_commande(commande)
+
+        self.recharger_badge(bruno, 20.00)
+
+        commande = Commande(bruno, "08:40")
+        commande.ajouter_ligne(chocolat_chaud, 1)
+        commande.ajouter_ligne(croissant, 3)
+        self.traiter_commande(commande)
+
+        visiteur = Client("Visiteur", 0.00, Profile.visiteur)
+        commande = Commande(visiteur, "09:15")
+        commande.ajouter_ligne(the, 1)
+        commande.ajouter_ligne(cookie, 1)
+        self.traiter_commande(commande)
+
+        commande = Commande(chloe, "11:00")
+        commande.ajouter_ligne(plat_du_jour, 1)
+        self.traiter_commande(commande)
+
+        commande = Commande(chloe, "12:05")
+        commande.ajouter_ligne(plat_du_jour, 1)
+        commande.ajouter_ligne(jus_orange, 1)
+        commande.ajouter_ligne(cookie, 1)
+        self.traiter_commande(commande)
+
+        self.recharger_badge(alice, 150.00)
+
+        commande = Commande(alice, "12:20")
+        commande.ajouter_ligne(wrap, 1)
+        commande.ajouter_ligne(eau_50cl, 1)
+        commande.ajouter_ligne(fruit, 1)
+        commande.ajouter_ligne(cafe_expresso, 1)
+        self.traiter_commande(commande)
+
+        commande = Commande(visiteur, "12:45")
+        commande.ajouter_ligne(sandwich, 16)
+        self.traiter_commande(commande)
+
+        # Le produit "Smoothie mangue" n'existe pas dans la carte.
+        commande = Commande(bruno, "13:00")
+        commande.ajouter_ligne(sandwich, 1)
+        self.traiter_commande(commande)
+
+        commande = Commande(alice, "15:30")
+        commande.ajouter_ligne(cafe_expresso, 1)
+        commande.ajouter_ligne(cookie, 1)
+        self.traiter_commande(commande)
+
+        self.reapprovisionner("PO1", 10)
+
+        commande = Commande(farid, "17:30")
+        commande.ajouter_ligne(the, 2)
+        self.traiter_commande(commande)
+
+        return self.rapport_cloture()
+
+
+if __name__ == "__main__":
+    cafeteria = Cafeteria()
+    print(cafeteria.scenario())
