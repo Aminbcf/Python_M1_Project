@@ -68,3 +68,6 @@ class Client:
         if self.avantage_fidelite() == 0:
             return
         self.pointfid -= self.SEUIL_POINTS
+            
+            
+        

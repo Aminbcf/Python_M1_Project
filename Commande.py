@@ -1,18 +1,21 @@
+from Produit import Produit
+from Client import Client
+
 class Commande:
     prochain_numero = 1
 
-    def __init__(self, client, heure: str):
+    def __init__(self, client:Client, heure: str):
         self.numero = Commande.prochain_numero
         Commande.prochain_numero += 1
         self.client = client
         self.heure = heure
-        self.lignes = []
+        self.lignes = [] # (produit , quantity)
 
-    def __repr__(self):
-        return f"Commande({self.numero}, {self.client!r}, {self.heure!r})"
+    def __repr__(self): # the !r is for formatting to use rpr representation
+        return f"Commande({self.numero}, {self.client!r}, {self.heure!r} , {self.lignes!r})"
 
     def __str__(self):
-        ticket = f"Commande {self.numero} - {self.client.nom}\n"
+        ticket = f"Commande {self.numero} - {self.client.nom} \n"
         for produit, quantite in self.lignes:
             sous_total = produit.prix * quantite
             ticket += f"{produit.nom} x {quantite} : {sous_total:.2f} EUR\n"
