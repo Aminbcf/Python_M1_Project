@@ -73,6 +73,9 @@ class Cafeteria:
         heure = commande.heure
 
         for produit, qte in commande.lignes:
+            if self.chercher_produit(produit.code) is None:
+                self.enregistrer_refus("produit inconnu")
+                return False, "produit inconnu", 0.00
             is_disponible, motif = produit.disponible(qte, heure)
             if not is_disponible:
                 if motif == "Stock n'est pas suffisant":
@@ -153,6 +156,12 @@ class Cafeteria:
 
         return "\n".join(lignes)
 
+    def sauvegarder_sortie(
+        self, rapport: str, nom_fichier: str = "sortie_scenario.txt"
+    ) -> None:
+        with open(nom_fichier, "w", encoding="utf-8") as fichier:
+            fichier.write(rapport)
+
     def scenario(self):
         cafe_expresso = self.chercher_produit("BO1")
         the = self.chercher_produit("BO2")
@@ -221,9 +230,12 @@ class Cafeteria:
         commande.ajouter_ligne(sandwich, 16)
         self.traiter_commande(commande)
 
-        # Le produit "Smoothie mangue" n'existe pas dans la carte.
+        smoothie_mangue = Produit(
+            "SM1", "Smoothie mangue", "boisson froide", 3.00, 0
+        )
         commande = Commande(bruno, "13:00")
         commande.ajouter_ligne(sandwich, 1)
+        commande.ajouter_ligne(smoothie_mangue, 1)
         self.traiter_commande(commande)
 
         commande = Commande(alice, "15:30")
@@ -237,7 +249,9 @@ class Cafeteria:
         commande.ajouter_ligne(the, 2)
         self.traiter_commande(commande)
 
-        return self.rapport_cloture()
+        rapport = self.rapport_cloture()
+        self.sauvegarder_sortie(rapport)
+        return rapport
 
 
 if __name__ == "__main__":

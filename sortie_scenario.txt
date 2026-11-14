@@ -1,0 +1,29 @@
+RAPPORT DE CLOTURE
+Commandes acceptees : 8
+Chiffre d'affaires : 34.02 EUR
+Remises et avantages : 2.58 EUR
+Refus :
+- produit inconnu : 1
+- quantité invalide : 0
+- rupture de stock : 1
+- hors créneau : 1
+- solde insuffisant : 1
+Top 3 des ventes :
+- Café expresso : 5
+- Croissant : 4
+- Cookie : 3
+Carte :
+- DO2 - Fruit de saison : 29
+- BO5 - Eau 50 cl : 39
+- BO1 - Café expresso : 95
+- VO1 - Croissant : 26
+- BO2 - Thé : 57
+- DO1 - Cookie : 22
+- BO3 - Chocolat chaud : 39
+- BO4 - Jus d'orange : 23
+- PO1 - Sandwich jambon-beurre : 25
+- PO2 - Wrap végétarien : 9
+- PO3 - Plat du jour : 19
+Badges avec un solde inferieur a 3.00 EUR :
+- Alice : 0.66 EUR
+- Farid : -5.00 EUR

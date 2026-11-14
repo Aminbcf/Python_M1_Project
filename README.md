@@ -28,7 +28,8 @@ Projet Python de caisse pour la cafétéria du campus.
 Un plat est disponible seulement entre `11:30` inclus et `14:00` exclue.
 Les heures sont écrites au format `HH:MM`.
 
-Le code `BO1` utilisé dans le scénario est conservé avec la lettre `O`.
+Les codes des produits utilisent la lettre `O`, par exemple `BO1`, `VO1`,
+`PO1` et `DO1`.
 
 ## Lancement
 
@@ -38,7 +39,13 @@ Depuis le dossier du projet :
 python Cafeteria.py
 ```
 
-Les tests seront ajoutés dans un fichier séparé avec des assertions simples.
+Le rapport est aussi enregistré dans `sortie_scenario.txt`.
+
+Pour lancer les tests :
+
+```bash
+python test.py
+```
 
 ## Objectif
 

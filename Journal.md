@@ -1,3 +1,7 @@
-**Date : Samedi 31 Octebre 2026** 
+**Date : 14 novembre 2026**
 
--Enums are way easier to handel than class attributs so i am going to be using them
+- J'ai terminé les quatre classes et le scénario.
+- J'ai choisi la variante A1/B1.
+- J'ai ajouté des assertions simples dans `test.py`.
+- Le rapport est enregistré dans `sortie_scenario.txt`.
+- J'ai gardé la lettre `O` dans les codes produits, comme dans mon programme.
