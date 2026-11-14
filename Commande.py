@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from Produit import Produit
 from Client import Client
 
@@ -28,11 +30,11 @@ class Commande:
         self.lignes.append((produit, quantite))
         return True
 
-    def total(self) -> float:
-        total = 0
+    def total(self) -> Decimal:
+        total = Decimal("0.00")
         for produit, quantite in self.lignes:
             total += produit.prix * quantite
-        return round(total, 2)
+        return total.quantize(Decimal("0.01"))
 
     def __len__(self):
         nombre_articles = 0

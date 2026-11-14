@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from Client import Client
 from Profile import Profile
 from Produit import Produit
@@ -16,9 +18,10 @@ class Cafeteria:
             "rupture de stock": 0,
             "hors créneau": 0,
             "solde insuffisant": 0,
+            "transaction échouée": 0,
         }
-        self.chiffre_affaires = 0.00
-        self.total_remises = 0.00
+        self.chiffre_affaires = Decimal("0.00")
+        self.total_remises = Decimal("0.00")
         self.ventes = {}
 
     def creer_carte(self) -> list[Produit]:
@@ -54,7 +57,7 @@ class Cafeteria:
         if motif in self.refus:
             self.refus[motif] += 1
 
-    def recharger_badge(self, client: Client, montant: float) -> bool:
+    def recharger_badge(self, client: Client, montant: Decimal | float) -> bool:
         return client.recharger(montant)
 
     def reapprovisionner(self, code: str, quantite: int) -> bool:
@@ -68,44 +71,75 @@ class Cafeteria:
 
     def traiter_commande(
         self, commande: Commande
-    ) -> tuple[bool, str, float]:
+    ) -> tuple[bool, str, Decimal]:
+        if not commande.lignes:
+            self.enregistrer_refus("quantité invalide")
+            return False, "quantité invalide", Decimal("0.00")
+
         client = commande.client
         heure = commande.heure
+        lignes_par_code = {}
 
         for produit, qte in commande.lignes:
-            if self.chercher_produit(produit.code) is None:
+            produit_carte = self.chercher_produit(produit.code)
+            if produit_carte is None:
                 self.enregistrer_refus("produit inconnu")
-                return False, "produit inconnu", 0.00
-            is_disponible, motif = produit.disponible(qte, heure)
+                return False, "produit inconnu", Decimal("0.00")
+            is_disponible, motif = produit_carte.disponible(qte, heure)
             if not is_disponible:
                 if motif == "Stock n'est pas suffisant":
                     motif = "rupture de stock"
                 self.enregistrer_refus(motif)
-                return False, motif, 0.00
+                return False, motif, Decimal("0.00")
+            # si produit exist deja  on ajoute la quantity pour check de stock
+            if produit_carte.code in lignes_par_code:
+                lignes_par_code[produit_carte.code][1] += qte
+            else:
+                lignes_par_code[produit_carte.code] = [produit_carte, qte]
 
-        total = commande.total()
+        lignes = list(lignes_par_code.values())
+        for produit, qte in lignes:
+            if qte > produit.stock:
+                self.enregistrer_refus("rupture de stock")
+                return False, "rupture de stock", Decimal("0.00")
 
-        remise = 0.00
-        frais_service = 0.00
+        total = sum(
+            (produit.prix * qte for produit, qte in lignes), Decimal("0.00")
+        ).quantize(Decimal("0.01"))
+
+        remise = Decimal("0.00")
+        frais_service = Decimal("0.00")
         if client.profile == Profile.etudiant:
-            remise = total * 0.10
+            remise = total * Decimal("0.10")
         elif client.profile == Profile.alternant:
-            remise = total * 0.05
+            remise = total * Decimal("0.05")
         elif client.profile == Profile.visiteur:
-            frais_service = 0.50
+            frais_service = Decimal("0.50")
 
         avantage = client.avantage_fidelite()
 
-        montant = round(total - remise - avantage + frais_service, 2)
+        montant = (total - remise - avantage + frais_service).quantize(
+            Decimal("0.01")
+        )
 
         if not client.peut_payer(montant):
             self.enregistrer_refus("solde insuffisant")
-            return False, "solde insuffisant", 0.00
+            return False, "solde insuffisant", Decimal("0.00")
 
-        client.debiter(montant)
+        solde_avant = client.solde
+        stocks_avant = {produit.code: produit.stock for produit, _ in lignes}
+        if not client.debiter(montant):
+            client.solde = solde_avant
+            self.enregistrer_refus("transaction échouée")
+            return False, "transaction échouée", Decimal("0.00")
 
-        for produit, qte in commande.lignes:
-            produit.vendre(qte, heure)
+        for produit, qte in lignes:
+            if not produit.vendre(qte, heure):
+                client.solde = solde_avant
+                for produit_a_restaurer, _ in lignes:
+                    produit_a_restaurer.stock = stocks_avant[produit_a_restaurer.code]
+                self.enregistrer_refus("transaction échouée")
+                return False, "transaction échouée", Decimal("0.00")
 
         if avantage > 0:
             client.utiliser_avantage_fidelite()
@@ -115,7 +149,7 @@ class Cafeteria:
         self.chiffre_affaires += montant
         self.total_remises += remise + avantage
 
-        for produit, qte in commande.lignes:
+        for produit, qte in lignes:
             self.ventes[produit.code] = self.ventes.get(produit.code, 0) + qte
 
         return True, "", montant

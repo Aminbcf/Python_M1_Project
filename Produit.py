@@ -1,3 +1,6 @@
+from decimal import Decimal
+
+
 class Produit:
     HEURE_DEBUT_PLATS = "11:30"
     HEURE_FIN_PLATS = "14:00"
@@ -7,13 +10,13 @@ class Produit:
         code: str,
         nom: str,
         categorie: str,
-        prix: float,
+        prix: Decimal | float,
         stock: int,
     ):
         self.code = code
         self.nom = nom
         self.categorie = categorie
-        self.prix = round(prix, 2)
+        self.prix = Decimal(str(prix)).quantize(Decimal("0.01"))
         self.stock = stock
 
     def __repr__(self):

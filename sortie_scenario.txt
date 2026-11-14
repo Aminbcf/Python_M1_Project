@@ -8,6 +8,7 @@ Refus :
 - rupture de stock : 1
 - hors créneau : 1
 - solde insuffisant : 1
+- transaction échouée : 0
 Top 3 des ventes :
 - Café expresso : 5
 - Croissant : 4
