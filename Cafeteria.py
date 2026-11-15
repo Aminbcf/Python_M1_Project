@@ -1,7 +1,6 @@
 from decimal import Decimal
-
 from Client import Client
-from Profile import Profile
+from Profile import Profile                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
 from Produit import Produit
 from Commande import Commande
 
