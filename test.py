@@ -30,6 +30,9 @@ assert client.recharger(5.00) is True
 assert client.solde == 15.00
 assert client.recharger(4.99) is False
 assert client.recharger(101.00) is False
+recharge_test = Client("Recharge 100", 10.00, Profile.etudiant)
+assert recharge_test.recharger(100.00) is True
+assert recharge_test.solde == 110.00
 assert client.peut_payer(15.00) is True
 assert client.peut_payer(15.01) is False
 assert client.debiter(5.00) is True
