@@ -286,14 +286,29 @@ class Cafeteria:
             "RAPPORT DE CLOTURE",
             "Commandes acceptees : "
             f"{sum(commande.status == Status.accepter for commande in self.journal)}",
+            "Commandes annulées : "
+            f"{sum(commande.status == Status.anuller for commande in self.journal)} "
+            f"(dont {sum(commande.rappel_code is not None for commande in self.journal)} dues au rappel)",
             f"Chiffre d'affaires : {self.chiffre_affaires:.2f} EUR",
             f"Remises et avantages : {self.total_remises:.2f} EUR",
-            f"Remboursements : {self.total_remboursements:.2f} EUR",
+            f"Total remboursé : {self.total_remboursements:.2f} EUR",
             "Refus :",
         ]
 
         for motif, nombre in self.refus.items():
             lignes.append(f"- {motif} : {nombre}")
+
+        lignes.append("Clients remboursés par rappel :")
+        for produit, _, montants_clients in self.rappels:
+            lignes.append(f"- {produit.nom} ({produit.code}) :")
+            if not montants_clients:
+                lignes.append("  - aucun client remboursé")
+                continue
+            for client, montant in sorted(
+                montants_clients.items(),
+                key=lambda item: (-item[1], item[0].nom),
+            ):
+                lignes.append(f"  - {client.nom} : {montant:.2f} EUR")
 
         produits_vendus = []
         for code, quantite in self.ventes.items():
@@ -308,7 +323,9 @@ class Cafeteria:
         lignes.append("Carte :")
         for produit in sorted(self.carte):
             stock = f"{produit.stock}"
-            if produit.stock == 0:
+            if produit.rappelle:
+                stock += " (rappelé)"
+            elif produit.stock == 0:
                 stock += " (epuise)"
             lignes.append(f"- {produit.code} - {produit.nom} : {stock}")
 

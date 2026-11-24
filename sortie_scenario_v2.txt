@@ -1,8 +1,9 @@
 RAPPORT DE CRISE
-Commandes acceptees : 10
-Chiffre d'affaires : 47.13 EUR
-Remises et avantages : 3.27 EUR
-Remboursements : 4.14 EUR
+Commandes acceptees : 7
+Commandes annulées : 3 (dont 2 dues au rappel)
+Chiffre d'affaires : 27.18 EUR
+Remises et avantages : 1.82 EUR
+Total remboursé : 19.72 EUR
 Refus :
 - produit inconnu : 1
 - quantité invalide : 0
@@ -12,22 +13,27 @@ Refus :
 - transaction échouée : 0
 - commande inconnue : 1
 - commande déjà annulée : 1
+- produit rappelé : 2
+- déjà rappelé : 1
+Clients remboursés par rappel :
+- Wrap végétarien (PO2) :
+  - Bruno : 8.74 EUR
+  - Alice : 6.84 EUR
 Top 3 des ventes :
-- Café expresso : 5
-- Wrap végétarien : 4
+- Café expresso : 4
 - Croissant : 4
+- Cookie : 3
 Carte :
-- DO2 - Fruit de saison : 29
-- BO5 - Eau 50 cl : 39
-- BO1 - Café expresso : 95
+- DO2 - Fruit de saison : 30
+- BO5 - Eau 50 cl : 40
+- BO1 - Café expresso : 96
 - VO1 - Croissant : 26
 - BO2 - Thé : 57
 - DO1 - Cookie : 22
 - BO3 - Chocolat chaud : 39
 - BO4 - Jus d'orange : 23
 - PO1 - Sandwich jambon-beurre : 25
-- PO2 - Wrap végétarien : 16
+- PO2 - Wrap végétarien : 0 (rappelé)
 - PO3 - Plat du jour : 19
 Badges avec un solde inferieur a 3.00 EUR :
-- Alice : 0.66 EUR
 - Farid : -5.00 EUR

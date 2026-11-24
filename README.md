@@ -54,6 +54,13 @@ python test.py
 Le programme doit accepter ou refuser les commandes sans modifier le stock,
 le solde ou la fidélité lorsqu'une vérification échoue.
 
+## Évolution v2.0
+
+- Une annulation conserve la commande dans le journal, rembourse le montant réellement payé et remet en stock les produits non rappelés.
+- Un rappel rend le produit invendable et non réapprovisionnable, détruit son stock restant et annule les commandes encore actives qui le contiennent.
+- Le rapport de crise ne compte que les commandes acceptées et non annulées pour le chiffre d'affaires, les remises et les ventes. Il indique aussi les annulations, les remboursements et les clients remboursés par rappel.
+- La fidélité B1 est recalculée dans `Cafeteria.rejouer_fidelite` en rejouant les commandes acceptées et non annulées du client, dans l'ordre des heures. Le montant payé et les avantages déjà accordés sur chaque commande restent inchangés.
+- Le scénario v2 est exécuté avec `python Cafeteria.py` et son rapport est enregistré dans `sortie_scenario_v2.txt`.
 
 
 

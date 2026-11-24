@@ -31,3 +31,9 @@ Phase 2 :
 - Le rappel annule dans l'ordre les commandes encore acceptées, rembourse les clients et conserve le détail des clients touchés.
 - J'ai ajouté les tests du rappel, des refus de vente et de réapprovisionnement, et du second rappel.
 - Calcul du rappel à 12:30 : le rappel annule les commandes encore actives de Bruno et Alice, pour **8,74 EUR** et **6,84 EUR**. Avec les **4,14 EUR** remboursés à Chloé à 12:25, le total remboursé est **19,72 EUR**.
+
+Phase 3 :
+
+- J'ai mis à jour le rapport de clôture pour ignorer les commandes annulées dans les ventes, les remises et le chiffre d'affaires.
+- Le rapport indique les annulations dues au rappel, le total remboursé et les clients de chaque rappel, triés par montant.
+- J'ai ajouté la section « Évolution v2.0 » au README et enregistré la sortie du scénario dans `sortie_scenario_v2.txt`.

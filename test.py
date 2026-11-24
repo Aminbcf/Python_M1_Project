@@ -329,6 +329,18 @@ assert ok is False
 assert motif == "déjà rappelé"
 assert cafe_second_rappel.refus["déjà rappelé"] == 1
 
+# An unknown product cannot start a recall or change product/order state.
+cafe_rappel_inconnu = Cafeteria()
+stock_avant_rappel_inconnu = cafe_rappel_inconnu.chercher_produit("PO2").stock
+ok, motif, _ = cafe_rappel_inconnu.rappeler_produit("INCONNU")
+assert ok is False
+assert motif == "produit inconnu"
+assert cafe_rappel_inconnu.chercher_produit("PO2").stock == (
+    stock_avant_rappel_inconnu
+)
+assert cafe_rappel_inconnu.chercher_produit("PO2").rappelle is False
+assert cafe_rappel_inconnu.rappels == []
+
 # Scenario v2
 cafe_v2 = Cafeteria()
 rapport_v2 = cafe_v2.scenario_v2()
@@ -340,5 +352,20 @@ assert cafe_v2.refus["commande inconnue"] == 1
 assert cafe_v2.refus["produit rappelé"] == 2
 assert cafe_v2.refus["déjà rappelé"] == 1
 assert cafe_v2.total_remboursements == Decimal("19.72")
+assert "Commandes annulées : 3 (dont 2 dues au rappel)" in rapport_v2
+assert "Commandes acceptees : 7" in rapport_v2
+assert "Chiffre d'affaires : 27.18 EUR" in rapport_v2
+assert "Remises et avantages : 1.82 EUR" in rapport_v2
+assert "Total remboursé : 19.72 EUR" in rapport_v2
+assert "Wrap végétarien (PO2) :" in rapport_v2
+assert "PO2 - Wrap végétarien : 0 (rappelé)" in rapport_v2
+section_rappels = rapport_v2.split("Clients remboursés par rappel :\n", 1)[1]
+assert section_rappels.index("Bruno : 8.74 EUR") < section_rappels.index(
+    "Alice : 6.84 EUR"
+)
+top_ventes = rapport_v2.split("Top 3 des ventes :\n", 1)[1].split(
+    "Carte :\n", 1
+)[0]
+assert "Wrap végétarien" not in top_ventes
 
 print("Tous les tests sont reussis.")
