@@ -7,19 +7,26 @@ from Status import Status
 class Commande:
     prochain_numero = 1
 
-    def __init__(self, client:Client, heure: str , status : Status):
+    def __init__(self, client: Client, heure: str, status: Status = Status.accepter):
         self.numero = Commande.prochain_numero
         Commande.prochain_numero += 1
         self.client = client
         self.heure = heure
         self.status = status
-        self.lignes = [] # (produit , quantity)
+        self.lignes = []
+        self.montant_paye = Decimal("0.00")
+        self.remise = Decimal("0.00")
+        self.avantage = Decimal("0.00")
 
     def __repr__(self): # the !r is for formatting to use rpr representation
         return f"Commande({self.numero}, {self.client!r}, {self.heure!r} , {self.lignes!r} , {self.status!r})"
 
     def __str__(self):
-        ticket = f"Commande {self.numero} - {self.client.nom} - {self.status} \n"
+        ticket = f"Commande {self.numero} - {self.client.nom}"
+        if self.status == Status.anuller:
+            ticket += " - ANNULÉE\n"
+        else:
+            ticket += "\n"
         for produit, quantite in self.lignes:
             sous_total = produit.prix * quantite
             ticket += f"{produit.nom} x {quantite} : {sous_total:.2f} EUR\n"

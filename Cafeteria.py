@@ -19,9 +19,12 @@ class Cafeteria:
             "hors créneau": 0,
             "solde insuffisant": 0,
             "transaction échouée": 0,
+            "commande inconnue": 0,
+            "commande déjà annulée": 0,
         }
         self.chiffre_affaires = Decimal("0.00")
         self.total_remises = Decimal("0.00")
+        self.total_remboursements = Decimal("0.00")
         self.ventes = {}
 
     def creer_carte(self) -> list[Produit]:
@@ -68,62 +71,107 @@ class Cafeteria:
 
     def ajouter_au_journal(self, commande: Commande) -> None:
         self.journal.append(commande)
-        
-    
-    def annulation(
-        self , commande: Commande
-        ) -> tuple[Status , str , Decimal]:
-        if not commande.lignes:
-                self.enregistrer_refus("quantité invalide")
-                return Status.anuller, "quantité invalide", Decimal("0.00")
-        
-  
+
+    def rejouer_fidelite(self, client: Client) -> None:
+        client.pointfid = 0
+        if client.paiment.value == "comptant":
+            return
+
+        for commande in self.journal:
+            if commande.status != Status.accepter:
+                continue
+            if commande.client is not client:
+                continue
+            if commande.avantage > 0:
+                if client.pointfid >= client.SEUIL_POINTS:
+                    client.pointfid -= client.SEUIL_POINTS
+            client.ajouter_points(commande.montant_paye)
+
+    def annuler_commande(
+        self, numero: int
+    ) -> tuple[bool, str, Decimal]:
+        commande = None
+        for item in self.journal:
+            if item.numero == numero:
+                commande = item
+                break
+        if commande is None:
+            self.enregistrer_refus("commande inconnue")
+            return False, "commande inconnue", Decimal("0.00")
+        if commande.status == Status.anuller:
+            self.enregistrer_refus("commande déjà annulée")
+            return False, "commande déjà annulée", Decimal("0.00")
+
         client = commande.client
-        heure = commande.heure
-        lignes_par_code = {}
+        solde_avant = client.solde
+        points_avant = client.pointfid
+        stocks_avant = {
+            produit.code: produit.stock
+            for produit, _ in commande.lignes
+        }
 
-        for produit, qte in commande.lignes:
+        remboursement = commande.montant_paye
+        for produit, quantite in commande.lignes:
             produit_carte = self.chercher_produit(produit.code)
-            if produit_carte is None:
-                self.enregistrer_refus("produit inconnu")
-                return Status.anuller, "produit inconnu", Decimal("0.00")
-            is_disponible, motif = produit_carte.disponible(qte, heure)
-            if not is_disponible:
-                if motif == "Stock n'est pas suffisant":
-                    motif = "rupture de stock"
-                self.enregistrer_refus(motif)
-                return Status.anuller, motif, Decimal("0.00")
-            if produit_carte.code in lignes_par_code:
-                lignes_par_code[produit_carte.code][1] += qte
-            else:
-                lignes_par_code[produit_carte.code] = [produit_carte, qte]
+            if produit_carte is not None:
+                produit_carte.stock += quantite
 
-        lignes = list(lignes_par_code.values())
-        for produit, qte in lignes:
-            if qte > produit.stock:
-                self.enregistrer_refus("rupture de stock")
-                return Status.anuller, "rupture de stock", Decimal("0.00")
-        
-        return Status.accepter , "" , Decimal("0.00")    
-        
+        if client.paiment.value == "badge":
+            client.solde = (client.solde + remboursement).quantize(
+                Decimal("0.01")
+            )
+
+        commande.status = Status.anuller
+        self.rejouer_fidelite(client)
+
+        self.chiffre_affaires = (
+            self.chiffre_affaires - remboursement
+        ).quantize(Decimal("0.01"))
+        self.total_remboursements = (
+            self.total_remboursements + remboursement
+        ).quantize(Decimal("0.01"))
+        self.total_remises = (
+            self.total_remises - commande.remise - commande.avantage
+        ).quantize(Decimal("0.01"))
+
+        for produit, quantite in commande.lignes:
+            stock_vendu = self.ventes.get(produit.code, 0)
+            self.ventes[produit.code] = max(0, stock_vendu - quantite)
+
+        return True, "", remboursement
 
     def traiter_commande(
             self, commande: Commande
         ) -> tuple[bool, str, Decimal]:
-            status, motif, remboursement = self.annulation(commande)
-            if status == Status.anuller:
-                return False, motif, remboursement
+            if not commande.lignes:
+                self.enregistrer_refus("quantité invalide")
+                return False, "quantité invalide", Decimal("0.00")
 
             client = commande.client
             heure = commande.heure
             lignes_par_code = {}
-            
-            for produit , qte in commande.lignes :
+
+            for produit, qte in commande.lignes:
                 produit_carte = self.chercher_produit(produit.code)
-                lignes_par_code[produit_carte.code] = [produit_carte, qte]
-            
+                if produit_carte is None:
+                    self.enregistrer_refus("produit inconnu")
+                    return False, "produit inconnu", Decimal("0.00")
+                disponible, motif = produit_carte.disponible(qte, heure)
+                if not disponible:
+                    if motif == "Stock n'est pas suffisant":
+                        motif = "rupture de stock"
+                    self.enregistrer_refus(motif)
+                    return False, motif, Decimal("0.00")
+                if produit_carte.code in lignes_par_code:
+                    lignes_par_code[produit_carte.code][1] += qte
+                else:
+                    lignes_par_code[produit_carte.code] = [produit_carte, qte]
 
             lignes = list(lignes_par_code.values())
+            for produit, qte in lignes:
+                if qte > produit.stock:
+                    self.enregistrer_refus("rupture de stock")
+                    return False, "rupture de stock", Decimal("0.00")
             total = sum(
                 (produit.prix * qte for produit, qte in lignes), Decimal("0.00")
             ).quantize(Decimal("0.01"))
@@ -165,6 +213,10 @@ class Cafeteria:
             if avantage > 0:
                 client.utiliser_avantage_fidelite()
 
+            commande.montant_paye = montant
+            commande.remise = remise
+            commande.avantage = avantage
+            commande.status = Status.accepter
             client.ajouter_points(montant)
             self.ajouter_au_journal(commande)
             self.chiffre_affaires += montant
@@ -178,9 +230,11 @@ class Cafeteria:
     def rapport_cloture(self) -> str:
         lignes = [
             "RAPPORT DE CLOTURE",
-            f"Commandes acceptees : {len(self.journal)}",
+            "Commandes acceptees : "
+            f"{sum(commande.status == Status.accepter for commande in self.journal)}",
             f"Chiffre d'affaires : {self.chiffre_affaires:.2f} EUR",
             f"Remises et avantages : {self.total_remises:.2f} EUR",
+            f"Remboursements : {self.total_remboursements:.2f} EUR",
             "Refus :",
         ]
 
@@ -256,7 +310,7 @@ class Cafeteria:
         commande.ajouter_ligne(croissant, 3)
         self.traiter_commande(commande)
 
-        visiteur = Client("Visiteur", 0.00, Profile.visiteur ,  Status.accepter)
+        visiteur = Client("Visiteur", 0.00, Profile.visiteur)
         commande = Commande(visiteur, "09:15" , Status.accepter)
         commande.ajouter_ligne(the, 1)
         commande.ajouter_ligne(cookie, 1)

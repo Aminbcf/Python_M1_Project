@@ -153,4 +153,120 @@ assert cafe_atomic.stock == stock_avant
 assert the_atomic.stock == stock_the_avant
 assert client_atomic.solde == solde_avant
 
+# Cancellation tests
+
+# 1. Cancelling the last order restores the stock, balance and fidelity.
+cafe_annulation = Cafeteria()
+alice_annulation = cafe_annulation.clients[0]
+produit_annulation = cafe_annulation.chercher_produit("BO1")
+solde_avant_annulation = alice_annulation.solde
+stock_avant_annulation = produit_annulation.stock
+points_avant_annulation = alice_annulation.pointfid
+commande_annulation = Commande(alice_annulation, "10:00", Status.accepter)
+assert commande_annulation.ajouter_ligne(produit_annulation, 1)
+acceptee, _, montant_annulation = cafe_annulation.traiter_commande(
+    commande_annulation
+)
+assert acceptee is True
+annulee, motif, rembourse = cafe_annulation.annuler_commande(
+    commande_annulation.numero
+)
+assert annulee is True
+assert motif == ""
+assert rembourse == montant_annulation
+assert produit_annulation.stock == stock_avant_annulation
+assert alice_annulation.solde == solde_avant_annulation
+assert alice_annulation.pointfid == points_avant_annulation
+
+# 2. An unknown order cannot be cancelled.
+cafe_inconnue = Cafeteria()
+annulee, motif, rembourse = cafe_inconnue.annuler_commande(999999)
+assert annulee is False
+assert motif == "commande inconnue"
+assert rembourse == Decimal("0.00")
+
+# 3. An order already cancelled cannot be cancelled twice.
+cafe_double = Cafeteria()
+alice_double = cafe_double.clients[0]
+cafe_double_produit = cafe_double.chercher_produit("BO1")
+commande_double = Commande(alice_double, "10:00", Status.accepter)
+commande_double.ajouter_ligne(cafe_double_produit, 1)
+assert cafe_double.traiter_commande(commande_double)[0] is True
+assert cafe_double.annuler_commande(commande_double.numero)[0] is True
+annulee, motif, rembourse = cafe_double.annuler_commande(
+    commande_double.numero
+)
+assert annulee is False
+assert motif == "commande déjà annulée"
+assert rembourse == Decimal("0.00")
+
+# 4. A refused cancellation changes nothing.
+cafe_refus = Cafeteria()
+alice_refus = cafe_refus.clients[0]
+cafe_refus_produit = cafe_refus.chercher_produit("BO1")
+solde_refus = alice_refus.solde
+stock_refus = cafe_refus_produit.stock
+points_refus = alice_refus.pointfid
+annulee, motif, rembourse = cafe_refus.annuler_commande(999998)
+assert annulee is False
+assert motif == "commande inconnue"
+assert rembourse == Decimal("0.00")
+assert alice_refus.solde == solde_refus
+assert cafe_refus_produit.stock == stock_refus
+assert alice_refus.pointfid == points_refus
+
+# 5. A visitor is refunded without changing its balance.
+cafe_visiteur = Cafeteria()
+visiteur_annulation = Client("Visiteur", 0.00, Profile.visiteur)
+produit_visiteur = cafe_visiteur.chercher_produit("BO1")
+commande_visiteur = Commande(visiteur_annulation, "10:00", Status.accepter)
+commande_visiteur.ajouter_ligne(produit_visiteur, 1)
+acceptee, _, montant_visiteur = cafe_visiteur.traiter_commande(
+    commande_visiteur
+)
+assert acceptee is True
+assert cafe_visiteur.annuler_commande(commande_visiteur.numero) == (
+    True,
+    "",
+    montant_visiteur,
+)
+assert visiteur_annulation.solde == Decimal("0.00")
+
+# 6. A badge refund bypasses the 150.00 recharge ceiling.
+cafe_plafond = Cafeteria()
+alice_plafond = cafe_plafond.clients[0]
+alice_plafond.solde = Decimal("149.50")
+cafe_plafond_produit = cafe_plafond.chercher_produit("BO1")
+commande_plafond = Commande(alice_plafond, "10:00", Status.accepter)
+commande_plafond.ajouter_ligne(cafe_plafond_produit, 1)
+assert cafe_plafond.traiter_commande(commande_plafond)[0] is True
+commande_plafond.montant_paye = Decimal("149.00")
+assert cafe_plafond.annuler_commande(commande_plafond.numero)[0] is True
+assert alice_plafond.solde == Decimal("297.42")
+
+# 7. Cancelling a loyalty-reward order restores fidelity by replay.
+cafe_avantage = Cafeteria()
+alice_avantage = cafe_avantage.clients[0]
+alice_avantage.pointfid = 30
+produit_avantage = cafe_avantage.chercher_produit("BO1")
+commande_avantage = Commande(alice_avantage, "10:00", Status.accepter)
+commande_avantage.ajouter_ligne(produit_avantage, 2)
+acceptee, _, _ = cafe_avantage.traiter_commande(commande_avantage)
+assert acceptee is True
+assert alice_avantage.pointfid == 0
+assert cafe_avantage.annuler_commande(commande_avantage.numero)[0] is True
+assert alice_avantage.pointfid == 0
+
+# 8. A cancelled order is retained in the journal and prints as cancelled.
+cafe_ticket = Cafeteria()
+alice_ticket = cafe_ticket.clients[0]
+produit_ticket = cafe_ticket.chercher_produit("BO1")
+commande_ticket = Commande(alice_ticket, "10:00", Status.accepter)
+commande_ticket.ajouter_ligne(produit_ticket, 1)
+assert cafe_ticket.traiter_commande(commande_ticket)[0] is True
+assert cafe_ticket.annuler_commande(commande_ticket.numero)[0] is True
+assert len(cafe_ticket.journal) == 1
+assert commande_ticket in cafe_ticket.journal
+assert "ANNULÉE" in str(commande_ticket)
+
 print("Tous les tests sont reussis.")
