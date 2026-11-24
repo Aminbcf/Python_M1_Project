@@ -269,4 +269,14 @@ assert len(cafe_ticket.journal) == 1
 assert commande_ticket in cafe_ticket.journal
 assert "ANNULÉE" in str(commande_ticket)
 
+# Scenario v2
+cafe_v2 = Cafeteria()
+rapport_v2 = cafe_v2.scenario_v2()
+wrap_v2 = cafe_v2.chercher_produit("PO2")
+assert "RAPPORT DE CRISE" in rapport_v2
+assert wrap_v2.stock == 16
+assert cafe_v2.refus["commande déjà annulée"] == 1
+assert cafe_v2.refus["commande inconnue"] == 1
+assert cafe_v2.total_remboursements == Decimal("4.14")
+
 print("Tous les tests sont reussis.")

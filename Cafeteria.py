@@ -271,6 +271,23 @@ class Cafeteria:
         with open(nom_fichier, "w", encoding="utf-8") as fichier:
             fichier.write(rapport)
 
+    def rappel_stock(self, code: str, heure: str) -> str:
+        produit = self.chercher_produit(code)
+        if produit is None:
+            return f"Rappel {heure} - produit inconnu : {code}"
+        return (
+            f"Rappel {heure} - {produit.nom} : "
+            f"{produit.stock} disponible(s)"
+        )
+
+    def rapport_crise(self) -> str:
+        rapport = self.rapport_cloture()
+        return rapport.replace(
+            "RAPPORT DE CLOTURE",
+            "RAPPORT DE CRISE",
+            1,
+        )
+
     def scenario(self):
         cafe_expresso = self.chercher_produit("BO1")
         the = self.chercher_produit("BO2")
@@ -361,6 +378,127 @@ class Cafeteria:
         rapport = self.rapport_cloture()
         self.sauvegarder_sortie(rapport)
         return rapport
+
+    def scenario_v2(self) -> str:
+        cafe_expresso = self.chercher_produit("BO1")
+        the = self.chercher_produit("BO2")
+        chocolat_chaud = self.chercher_produit("BO3")
+        jus_orange = self.chercher_produit("BO4")
+        eau_50cl = self.chercher_produit("BO5")
+        croissant = self.chercher_produit("VO1")
+        sandwich = self.chercher_produit("PO1")
+        wrap = self.chercher_produit("PO2")
+        plat_du_jour = self.chercher_produit("PO3")
+        cookie = self.chercher_produit("DO1")
+        fruit = self.chercher_produit("DO2")
+
+        alice = self.clients[0]
+        bruno = self.clients[1]
+        chloe = self.clients[2]
+        farid = self.clients[3]
+
+        commande = Commande(alice, "07:45", Status.accepter)
+        commande.ajouter_ligne(cafe_expresso, 1)
+        commande.ajouter_ligne(croissant, 1)
+        self.traiter_commande(commande)
+
+        commande = Commande(farid, "08:10", Status.accepter)
+        commande.ajouter_ligne(cafe_expresso, 2)
+        self.traiter_commande(commande)
+
+        commande = Commande(bruno, "08:30", Status.accepter)
+        commande.ajouter_ligne(chocolat_chaud, 1)
+        commande.ajouter_ligne(croissant, 3)
+        self.traiter_commande(commande)
+
+        self.recharger_badge(bruno, 20.00)
+
+        commande = Commande(bruno, "08:40", Status.accepter)
+        commande.ajouter_ligne(chocolat_chaud, 1)
+        commande.ajouter_ligne(croissant, 3)
+        self.traiter_commande(commande)
+
+        visiteur = Client("Visiteur", 0.00, Profile.visiteur)
+        commande = Commande(visiteur, "09:15", Status.accepter)
+        commande.ajouter_ligne(the, 1)
+        commande.ajouter_ligne(cookie, 1)
+        self.traiter_commande(commande)
+
+        commande = Commande(chloe, "11:00", Status.accepter)
+        commande.ajouter_ligne(plat_du_jour, 1)
+        self.traiter_commande(commande)
+
+        commande = Commande(chloe, "12:05", Status.accepter)
+        commande.ajouter_ligne(plat_du_jour, 1)
+        commande.ajouter_ligne(jus_orange, 1)
+        commande.ajouter_ligne(cookie, 1)
+        self.traiter_commande(commande)
+
+        self.recharger_badge(alice, 150.00)
+
+        # Les événements 12:15 à 12:27 sont insérés avant l'événement 12:30.
+        commande = Commande(bruno, "12:15", Status.accepter)
+        commande.ajouter_ligne(wrap, 2)
+        self.traiter_commande(commande)
+
+        commande_chloe = Commande(chloe, "12:18", Status.accepter)
+        commande_chloe.ajouter_ligne(wrap, 1)
+        self.traiter_commande(commande_chloe)
+
+        # L'événement 11 du scénario v1 reste à sa place.
+        commande = Commande(alice, "12:20", Status.accepter)
+        commande.ajouter_ligne(wrap, 1)
+        commande.ajouter_ligne(eau_50cl, 1)
+        commande.ajouter_ligne(fruit, 1)
+        commande.ajouter_ligne(cafe_expresso, 1)
+        self.traiter_commande(commande)
+
+        self.annuler_commande(commande_chloe.numero)
+        self.annuler_commande(commande_chloe.numero)
+        self.annuler_commande(999)
+
+        print(self.rappel_stock("PO2", "12:30"))
+
+        commande = Commande(bruno, "12:35", Status.accepter)
+        commande.ajouter_ligne(wrap, 1)
+        self.traiter_commande(commande)
+
+        self.reapprovisionner("PO2", 10)
+
+        print(self.rappel_stock("PO2", "12:40"))
+
+        commande = Commande(visiteur, "12:45", Status.accepter)
+        commande.ajouter_ligne(sandwich, 16)
+        self.traiter_commande(commande)
+
+        smoothie_mangue = Produit(
+            "SM1", "Smoothie mangue", "boisson froide", 3.00, 0
+        )
+        commande = Commande(bruno, "13:00", Status.accepter)
+        commande.ajouter_ligne(sandwich, 1)
+        commande.ajouter_ligne(smoothie_mangue, 1)
+        self.traiter_commande(commande)
+
+        commande = Commande(alice, "15:30", Status.accepter)
+        commande.ajouter_ligne(cafe_expresso, 1)
+        commande.ajouter_ligne(cookie, 1)
+        self.traiter_commande(commande)
+
+        self.reapprovisionner("PO1", 10)
+
+        commande = Commande(farid, "17:30", Status.accepter)
+        commande.ajouter_ligne(the, 2)
+        self.traiter_commande(commande)
+
+        rapport = self.rapport_crise()
+        self.sauvegarder_sortie(
+            rapport,
+            "sortie_scenario_v2.txt",
+        )
+        return rapport
+
+    def scenario_v27(self) -> str:
+        return self.scenario_v2()
 
 
 if __name__ == "__main__":

@@ -11,3 +11,12 @@
 Phase 1 :
 
 * je vois que j'ai deja implmentez une annulation je dois la adaptedz au status
+
+- J'ai ajouté le status aux commandes.
+- J'ai adapté l'annulation pour utiliser le status.
+- L'annulation remet le stock et rembourse le client.
+- J'ai ajouté les tests pour vérifier les annulations et les commandes déjà annulées.
+- J'ai ajouté le scénario v2 dans `Cafeteria.py`.
+- J'ai ajouté les commandes, les annulations et les rappels du Wrap à 12:30 et 12:40.
+- J'ai ajouté le rapport de crise à 18:30.
+- J'ai ajouté des assertions pour vérifier le stock final, les annulations et les remboursements.
