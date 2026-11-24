@@ -3,6 +3,7 @@ from Client import Client
 from Profile import Profile                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
 from Produit import Produit
 from Commande import Commande
+from Status import Status
 
 
 
@@ -67,14 +68,16 @@ class Cafeteria:
 
     def ajouter_au_journal(self, commande: Commande) -> None:
         self.journal.append(commande)
-
-    def traiter_commande(
-        self, commande: Commande
-    ) -> tuple[bool, str, Decimal]:
+        
+    
+    def annulation(
+        self , commande: Commande
+        ) -> tuple[Status , str , Decimal]:
         if not commande.lignes:
-            self.enregistrer_refus("quantité invalide")
-            return False, "quantité invalide", Decimal("0.00")
-
+                self.enregistrer_refus("quantité invalide")
+                return Status.anuller, "quantité invalide", Decimal("0.00")
+        
+  
         client = commande.client
         heure = commande.heure
         lignes_par_code = {}
@@ -83,14 +86,13 @@ class Cafeteria:
             produit_carte = self.chercher_produit(produit.code)
             if produit_carte is None:
                 self.enregistrer_refus("produit inconnu")
-                return False, "produit inconnu", Decimal("0.00")
+                return Status.anuller, "produit inconnu", Decimal("0.00")
             is_disponible, motif = produit_carte.disponible(qte, heure)
             if not is_disponible:
                 if motif == "Stock n'est pas suffisant":
                     motif = "rupture de stock"
                 self.enregistrer_refus(motif)
-                return False, motif, Decimal("0.00")
-            # si produit exist deja  on ajoute la quantity pour check de stock
+                return Status.anuller, motif, Decimal("0.00")
             if produit_carte.code in lignes_par_code:
                 lignes_par_code[produit_carte.code][1] += qte
             else:
@@ -100,58 +102,78 @@ class Cafeteria:
         for produit, qte in lignes:
             if qte > produit.stock:
                 self.enregistrer_refus("rupture de stock")
-                return False, "rupture de stock", Decimal("0.00")
+                return Status.anuller, "rupture de stock", Decimal("0.00")
+        
+        return Status.accepter , "" , Decimal("0.00")    
+        
 
-        total = sum(
-            (produit.prix * qte for produit, qte in lignes), Decimal("0.00")
-        ).quantize(Decimal("0.01"))
+    def traiter_commande(
+            self, commande: Commande
+        ) -> tuple[bool, str, Decimal]:
+            status, motif, remboursement = self.annulation(commande)
+            if status == Status.anuller:
+                return False, motif, remboursement
 
-        remise = Decimal("0.00")
-        frais_service = Decimal("0.00")
-        if client.profile == Profile.etudiant:
-            remise = total * Decimal("0.10")
-        elif client.profile == Profile.alternant:
-            remise = total * Decimal("0.05")
-        elif client.profile == Profile.visiteur:
-            frais_service = Decimal("0.50")
+            client = commande.client
+            heure = commande.heure
+            lignes_par_code = {}
+            
+            for produit , qte in commande.lignes :
+                produit_carte = self.chercher_produit(produit.code)
+                lignes_par_code[produit_carte.code] = [produit_carte, qte]
+            
 
-        avantage = client.avantage_fidelite()
+            lignes = list(lignes_par_code.values())
+            total = sum(
+                (produit.prix * qte for produit, qte in lignes), Decimal("0.00")
+            ).quantize(Decimal("0.01"))
 
-        montant = (total - remise - avantage + frais_service).quantize(
-            Decimal("0.01")
-        )
+            remise = Decimal("0.00")
+            frais_service = Decimal("0.00")
+            if client.profile == Profile.etudiant:
+                remise = total * Decimal("0.10")
+            elif client.profile == Profile.alternant:
+                remise = total * Decimal("0.05")
+            elif client.profile == Profile.visiteur:
+                frais_service = Decimal("0.50")
 
-        if not client.peut_payer(montant):
-            self.enregistrer_refus("solde insuffisant")
-            return False, "solde insuffisant", Decimal("0.00")
+            avantage = client.avantage_fidelite()
 
-        solde_avant = client.solde
-        stocks_avant = {produit.code: produit.stock for produit, _ in lignes}
-        if not client.debiter(montant):
-            client.solde = solde_avant
-            self.enregistrer_refus("transaction échouée")
-            return False, "transaction échouée", Decimal("0.00")
+            montant = (total - remise - avantage + frais_service).quantize(
+                Decimal("0.01")
+            )
 
-        for produit, qte in lignes:
-            if not produit.vendre(qte, heure):
+            if not client.peut_payer(montant):
+                self.enregistrer_refus("solde insuffisant")
+                return False, "solde insuffisant", Decimal("0.00")
+
+            solde_avant = client.solde
+            stocks_avant = {produit.code: produit.stock for produit, _ in lignes}
+            if not client.debiter(montant):
                 client.solde = solde_avant
-                for produit_a_restaurer, _ in lignes:
-                    produit_a_restaurer.stock = stocks_avant[produit_a_restaurer.code]
                 self.enregistrer_refus("transaction échouée")
                 return False, "transaction échouée", Decimal("0.00")
 
-        if avantage > 0:
-            client.utiliser_avantage_fidelite()
+            for produit, qte in lignes:
+                if not produit.vendre(qte, heure):
+                    client.solde = solde_avant
+                    for produit_a_restaurer, _ in lignes:
+                        produit_a_restaurer.stock = stocks_avant[produit_a_restaurer.code]
+                    self.enregistrer_refus("transaction échouée")
+                    return False, "transaction échouée", Decimal("0.00")
 
-        client.ajouter_points(montant)
-        self.ajouter_au_journal(commande)
-        self.chiffre_affaires += montant
-        self.total_remises += remise + avantage
+            if avantage > 0:
+                client.utiliser_avantage_fidelite()
 
-        for produit, qte in lignes:
-            self.ventes[produit.code] = self.ventes.get(produit.code, 0) + qte
+            client.ajouter_points(montant)
+            self.ajouter_au_journal(commande)
+            self.chiffre_affaires += montant
+            self.total_remises += remise + avantage
 
-        return True, "", montant
+            for produit, qte in lignes:
+                self.ventes[produit.code] = self.ventes.get(produit.code, 0) + qte
+
+            return True, "", montant
 
     def rapport_cloture(self) -> str:
         lignes = [
@@ -213,38 +235,38 @@ class Cafeteria:
         chloe = self.clients[2]
         farid = self.clients[3]
 
-        commande = Commande(alice, "07:45")
+        commande = Commande(alice, "07:45" , Status.accepter)
         commande.ajouter_ligne(cafe_expresso, 1)
         commande.ajouter_ligne(croissant, 1)
         self.traiter_commande(commande)
 
-        commande = Commande(farid, "08:10")
+        commande = Commande(farid, "08:10",  Status.accepter)
         commande.ajouter_ligne(cafe_expresso, 2)
         self.traiter_commande(commande)
 
-        commande = Commande(bruno, "08:30")
+        commande = Commande(bruno, "08:30" ,  Status.accepter)
         commande.ajouter_ligne(chocolat_chaud, 1)
         commande.ajouter_ligne(croissant, 3)
         self.traiter_commande(commande)
 
         self.recharger_badge(bruno, 20.00)
 
-        commande = Commande(bruno, "08:40")
+        commande = Commande(bruno, "08:40",  Status.accepter)
         commande.ajouter_ligne(chocolat_chaud, 1)
         commande.ajouter_ligne(croissant, 3)
         self.traiter_commande(commande)
 
-        visiteur = Client("Visiteur", 0.00, Profile.visiteur)
-        commande = Commande(visiteur, "09:15")
+        visiteur = Client("Visiteur", 0.00, Profile.visiteur ,  Status.accepter)
+        commande = Commande(visiteur, "09:15" , Status.accepter)
         commande.ajouter_ligne(the, 1)
         commande.ajouter_ligne(cookie, 1)
         self.traiter_commande(commande)
 
-        commande = Commande(chloe, "11:00")
+        commande = Commande(chloe, "11:00" ,  Status.accepter)
         commande.ajouter_ligne(plat_du_jour, 1)
         self.traiter_commande(commande)
 
-        commande = Commande(chloe, "12:05")
+        commande = Commande(chloe, "12:05" ,  Status.accepter)
         commande.ajouter_ligne(plat_du_jour, 1)
         commande.ajouter_ligne(jus_orange, 1)
         commande.ajouter_ligne(cookie, 1)
@@ -252,33 +274,33 @@ class Cafeteria:
 
         self.recharger_badge(alice, 150.00)
 
-        commande = Commande(alice, "12:20")
+        commande = Commande(alice, "12:20" , Status.accepter)
         commande.ajouter_ligne(wrap, 1)
         commande.ajouter_ligne(eau_50cl, 1)
         commande.ajouter_ligne(fruit, 1)
         commande.ajouter_ligne(cafe_expresso, 1)
         self.traiter_commande(commande)
 
-        commande = Commande(visiteur, "12:45")
+        commande = Commande(visiteur, "12:45" , Status.accepter)
         commande.ajouter_ligne(sandwich, 16)
         self.traiter_commande(commande)
 
         smoothie_mangue = Produit(
             "SM1", "Smoothie mangue", "boisson froide", 3.00, 0
         )
-        commande = Commande(bruno, "13:00")
+        commande = Commande(bruno, "13:00",Status.accepter)
         commande.ajouter_ligne(sandwich, 1)
         commande.ajouter_ligne(smoothie_mangue, 1)
         self.traiter_commande(commande)
 
-        commande = Commande(alice, "15:30")
+        commande = Commande(alice, "15:30",Status.accepter)
         commande.ajouter_ligne(cafe_expresso, 1)
         commande.ajouter_ligne(cookie, 1)
         self.traiter_commande(commande)
 
         self.reapprovisionner("PO1", 10)
 
-        commande = Commande(farid, "17:30")
+        commande = Commande(farid, "17:30", Status.accepter)
         commande.ajouter_ligne(the, 2)
         self.traiter_commande(commande)
 

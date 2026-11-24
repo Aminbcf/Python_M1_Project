@@ -5,3 +5,9 @@
 - J'ai ajouté des assertions simples dans `test.py`.
 - Le rapport est enregistré dans `sortie_scenario.txt`.
 - J'ai gardé la lettre `O` dans les codes produits, comme dans mon programme.
+
+**Presentation day :**
+
+Phase 1 :
+
+* je vois que j'ai deja implmentez une annulation je dois la adaptedz au status
