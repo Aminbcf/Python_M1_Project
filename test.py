@@ -269,14 +269,76 @@ assert len(cafe_ticket.journal) == 1
 assert commande_ticket in cafe_ticket.journal
 assert "ANNULÉE" in str(commande_ticket)
 
+# Recall cancels every live order containing the product in chronological order
+# and returns the other products while destroying the recalled stock.
+cafe_rappel = Cafeteria()
+bruno_rappel = cafe_rappel.clients[1]
+alice_rappel = cafe_rappel.clients[0]
+assert bruno_rappel.recharger(20.00) is True
+wrap_rappel = cafe_rappel.chercher_produit("PO2")
+eau_rappel = cafe_rappel.chercher_produit("BO5")
+commande_bruno_rappel = Commande(bruno_rappel, "12:15", Status.accepter)
+commande_bruno_rappel.ajouter_ligne(wrap_rappel, 2)
+commande_bruno_rappel.ajouter_ligne(eau_rappel, 1)
+assert cafe_rappel.traiter_commande(commande_bruno_rappel)[0] is True
+commande_alice_rappel = Commande(alice_rappel, "12:20", Status.accepter)
+commande_alice_rappel.ajouter_ligne(wrap_rappel, 1)
+assert cafe_rappel.traiter_commande(commande_alice_rappel)[0] is True
+ok, motif, resume_rappel = cafe_rappel.rappeler_produit("PO2")
+assert ok is True
+assert motif == ""
+assert "2 commande(s)" in resume_rappel
+assert commande_bruno_rappel.rappel_code == "PO2"
+assert commande_alice_rappel.rappel_code == "PO2"
+assert wrap_rappel.rappelle is True
+assert wrap_rappel.stock == 0
+assert eau_rappel.stock == 40
+
+# A recall with no matching orders still marks and empties the product.
+cafe_rappel_vide = Cafeteria()
+wrap_rappel_vide = cafe_rappel_vide.chercher_produit("PO2")
+ok, _, resume_vide = cafe_rappel_vide.rappeler_produit("PO2")
+assert ok is True
+assert "0 commande(s)" in resume_vide
+assert wrap_rappel_vide.stock == 0
+
+# Recalled products cannot be sold or replenished.
+cafe_produit_rappelle = Cafeteria()
+wrap_produit_rappelle = cafe_produit_rappelle.chercher_produit("PO2")
+assert cafe_produit_rappelle.rappeler_produit("PO2")[0] is True
+commande_produit_rappelle = Commande(
+    cafe_produit_rappelle.clients[0], "12:35", Status.accepter
+)
+commande_produit_rappelle.ajouter_ligne(wrap_produit_rappelle, 1)
+ok, motif, _ = cafe_produit_rappelle.traiter_commande(
+    commande_produit_rappelle
+)
+assert ok is False
+assert motif == "produit rappelé"
+assert cafe_produit_rappelle.journal == []
+assert wrap_produit_rappelle.stock == 0
+assert cafe_produit_rappelle.reapprovisionner("PO2", 10) is False
+assert wrap_produit_rappelle.stock == 0
+assert cafe_produit_rappelle.refus["produit rappelé"] == 2
+
+# A second recall is rejected and counted.
+cafe_second_rappel = Cafeteria()
+assert cafe_second_rappel.rappeler_produit("PO2")[0] is True
+ok, motif, _ = cafe_second_rappel.rappeler_produit("PO2")
+assert ok is False
+assert motif == "déjà rappelé"
+assert cafe_second_rappel.refus["déjà rappelé"] == 1
+
 # Scenario v2
 cafe_v2 = Cafeteria()
 rapport_v2 = cafe_v2.scenario_v2()
 wrap_v2 = cafe_v2.chercher_produit("PO2")
 assert "RAPPORT DE CRISE" in rapport_v2
-assert wrap_v2.stock == 16
+assert wrap_v2.stock == 0
 assert cafe_v2.refus["commande déjà annulée"] == 1
 assert cafe_v2.refus["commande inconnue"] == 1
-assert cafe_v2.total_remboursements == Decimal("4.14")
+assert cafe_v2.refus["produit rappelé"] == 2
+assert cafe_v2.refus["déjà rappelé"] == 1
+assert cafe_v2.total_remboursements == Decimal("19.72")
 
 print("Tous les tests sont reussis.")

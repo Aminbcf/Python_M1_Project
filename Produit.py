@@ -18,6 +18,7 @@ class Produit:
         self.categorie = categorie
         self.prix = Decimal(str(prix)).quantize(Decimal("0.01"))
         self.stock = stock
+        self.rappelle = False
 
     def __repr__(self):
         return (
@@ -39,6 +40,9 @@ class Produit:
         return self.prix < other.prix
 
     def disponible(self, quantite: int, heure: str) -> tuple[bool , str]:
+        if self.rappelle:
+            return (False, "produit rappelé")
+
         if quantite <= 0:
             return (False, "quantité invalide")
 
@@ -61,8 +65,12 @@ class Produit:
         return True
 
     def reapprovisionner(self, quantite: int) -> bool:
-        if quantite <= 0:
+        if self.rappelle or quantite <= 0:
             return False
 
         self.stock += quantite
         return True
+
+    def rappeler(self) -> None:
+        self.rappelle = True
+        self.stock = 0

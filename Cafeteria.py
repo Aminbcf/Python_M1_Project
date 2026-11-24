@@ -21,11 +21,14 @@ class Cafeteria:
             "transaction échouée": 0,
             "commande inconnue": 0,
             "commande déjà annulée": 0,
+            "produit rappelé": 0,
+            "déjà rappelé": 0,
         }
         self.chiffre_affaires = Decimal("0.00")
         self.total_remises = Decimal("0.00")
         self.total_remboursements = Decimal("0.00")
         self.ventes = {}
+        self.rappels: list[tuple[Produit, list[Commande], dict[Client, Decimal]]] = []
 
     def creer_carte(self) -> list[Produit]:
         return [
@@ -67,6 +70,9 @@ class Cafeteria:
         produit = self.chercher_produit(code)
         if produit is None:
             return False
+        if produit.rappelle:
+            self.enregistrer_refus("produit rappelé")
+            return False
         return produit.reapprovisionner(quantite)
 
     def ajouter_au_journal(self, commande: Commande) -> None:
@@ -77,7 +83,7 @@ class Cafeteria:
         if client.paiment.value == "comptant":
             return
 
-        for commande in self.journal:
+        for commande in sorted(self.journal, key=lambda item: item.heure):
             if commande.status != Status.accepter:
                 continue
             if commande.client is not client:
@@ -88,7 +94,7 @@ class Cafeteria:
             client.ajouter_points(commande.montant_paye)
 
     def annuler_commande(
-        self, numero: int
+        self, numero: int, rappel_code: str | None = None
     ) -> tuple[bool, str, Decimal]:
         commande = None
         for item in self.journal:
@@ -113,7 +119,7 @@ class Cafeteria:
         remboursement = commande.montant_paye
         for produit, quantite in commande.lignes:
             produit_carte = self.chercher_produit(produit.code)
-            if produit_carte is not None:
+            if produit_carte is not None and not produit_carte.rappelle:
                 produit_carte.stock += quantite
 
         if client.paiment.value == "badge":
@@ -122,6 +128,7 @@ class Cafeteria:
             )
 
         commande.status = Status.anuller
+        commande.rappel_code = rappel_code
         self.rejouer_fidelite(client)
 
         self.chiffre_affaires = (
@@ -139,6 +146,53 @@ class Cafeteria:
             self.ventes[produit.code] = max(0, stock_vendu - quantite)
 
         return True, "", remboursement
+
+    def rappeler_produit(self, code: str) -> tuple[bool, str, str]:
+        produit = self.chercher_produit(code)
+        if produit is None:
+            self.enregistrer_refus("produit inconnu")
+            return False, "produit inconnu", f"Produit inconnu : {code}"
+        if produit.rappelle:
+            self.enregistrer_refus("déjà rappelé")
+            return False, "déjà rappelé", f"{produit.nom} est déjà rappelé"
+
+        produit.rappeler()
+        commandes = sorted(self.journal, key=lambda item: item.heure)
+        annulees = []
+        montants_clients: dict[Client, Decimal] = {}
+        for commande in commandes:
+            if (
+                commande.status == Status.accepter
+                and any(ligne.code == produit.code for ligne, _ in commande.lignes)
+            ):
+                annulee, _, montant = self.annuler_commande(
+                    commande.numero,
+                    rappel_code=produit.code,
+                )
+                if annulee:
+                    annulees.append(commande)
+                    montants_clients[commande.client] = (
+                        montants_clients.get(commande.client, Decimal("0.00"))
+                        + montant
+                    ).quantize(Decimal("0.01"))
+
+        self.rappels.append((produit, annulees, montants_clients))
+        numeros = ", ".join(str(commande.numero) for commande in annulees)
+        clients = ", ".join(
+            f"{client.nom} : {montant:.2f} EUR"
+            for client, montant in sorted(
+                montants_clients.items(),
+                key=lambda item: (-item[1], item[0].nom),
+            )
+        )
+        resume = (
+            f"Rappel de {produit.nom} : {len(annulees)} commande(s)"
+            f" annulée(s)"
+        )
+        if numeros:
+            resume += f" (n° {numeros})"
+        resume += f" ; clients remboursés : {clients or 'aucun'}"
+        return True, "", resume
 
     def traiter_commande(
             self, commande: Commande
@@ -270,15 +324,6 @@ class Cafeteria:
     ) -> None:
         with open(nom_fichier, "w", encoding="utf-8") as fichier:
             fichier.write(rapport)
-
-    def rappel_stock(self, code: str, heure: str) -> str:
-        produit = self.chercher_produit(code)
-        if produit is None:
-            return f"Rappel {heure} - produit inconnu : {code}"
-        return (
-            f"Rappel {heure} - {produit.nom} : "
-            f"{produit.stock} disponible(s)"
-        )
 
     def rapport_crise(self) -> str:
         rapport = self.rapport_cloture()
@@ -457,7 +502,7 @@ class Cafeteria:
         self.annuler_commande(commande_chloe.numero)
         self.annuler_commande(999)
 
-        print(self.rappel_stock("PO2", "12:30"))
+        self.rappeler_produit("PO2")
 
         commande = Commande(bruno, "12:35", Status.accepter)
         commande.ajouter_ligne(wrap, 1)
@@ -465,7 +510,7 @@ class Cafeteria:
 
         self.reapprovisionner("PO2", 10)
 
-        print(self.rappel_stock("PO2", "12:40"))
+        self.rappeler_produit("PO2")
 
         commande = Commande(visiteur, "12:45", Status.accepter)
         commande.ajouter_ligne(sandwich, 16)
@@ -497,10 +542,8 @@ class Cafeteria:
         )
         return rapport
 
-    def scenario_v27(self) -> str:
-        return self.scenario_v2()
-
 
 if __name__ == "__main__":
     cafeteria = Cafeteria()
-    print(cafeteria.scenario())
+    #print(cafeteria.scenario())
+    print(cafeteria.scenario_v2())

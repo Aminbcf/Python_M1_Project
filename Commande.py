@@ -17,6 +17,7 @@ class Commande:
         self.montant_paye = Decimal("0.00")
         self.remise = Decimal("0.00")
         self.avantage = Decimal("0.00")
+        self.rappel_code: str | None = None
 
     def __repr__(self): # the !r is for formatting to use rpr representation
         return f"Commande({self.numero}, {self.client!r}, {self.heure!r} , {self.lignes!r} , {self.status!r})"
